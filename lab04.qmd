@@ -101,6 +101,8 @@ met_avg[!is.na(wind.sp)] %>%
 
 ```
 
+Describe the plot: I see that there is more of a spread in dew point for SE and NE regions. In terms of wind speed, the data is more spread out for NW and SW.
+
 ### **4. Use `geom_jitter` with `stat_smooth` to examine the association between dew point and wind speed by region**
 
 ```{r}
@@ -111,6 +113,8 @@ met_avg[!is.na(dew.point) & !is.na(wind.sp) ] %>%
   labs(title= "Dew Point and Wind Speed by Region", x="Dew Point",y="Windspeed")
 
 ```
+
+I think there is probably a better way to visualize this since the legend doesn't seem to give lines that are different than each other. I noticed that the association between the two lines in the middle are closer than the other two lines.
 
 ### **5. Use `geom_bar` to create barplots of the weather stations by elevation category colored by region (Working)**
 
@@ -135,6 +139,8 @@ met_avg[!is.na(vis_cat)] %>%
 
 
 ```
+
+Describe the plot. I had a hard time figuring out how to include USAFID since I would get an error when I made it my X and Y value. However, this graph shows that elevation categories by region. We see that NW is mosly categorized by low elevation. SE has less elevation categories that are ocnsidered low.
 
 ### **6. Use `stat_summary` to examine mean dew point and wind speed by region with standard deviation error bars (Working)**
 
@@ -166,6 +172,12 @@ met_avg[!is.na(vis_cat)] %>%
 
 ```
 
+The mean between NE and SW seem to be closer to each other then other means.
+
+The highest mean value in dew point is NE.
+
+The highest mean value in wind speed is NE.
+
 ### **7. Make a map showing the spatial trend in relative humidity in the US (Working)**
 
 ```{r}
@@ -188,6 +200,8 @@ RH_map <- leaflet(met_avg) %>%
 RH_map
 
 ```
+
+The more east you go, the more humid it gets. There is more data in the eastern part of the United States compared to the west side.
 
 ```         
 ```
