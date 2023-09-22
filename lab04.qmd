@@ -1,0 +1,216 @@
+---
+title: "Lab04PM566"
+format: html
+editor: visual
+---
+
+## Lab 04: Plotting with ggplot()
+
+## Running Code
+
+```{r}
+#install.packages("datatable")
+library(datasets)
+library(leaflet)
+if (!file.exists("met_all.gz"))
+  download.file(
+    url = "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/02_met/met_all.gz",
+    destfile = "met_all.gz",
+    method   = "libcurl",
+    timeout  = 60
+    )
+met <- data.table::fread("met_all.gz")
+unique(met$day)
+met
+
+```
+
+### **2. Prepare the data**
+
+```{r}
+
+
+met_1 <- met[met$temp >-17][elev == 9999.0, elev := NA]
+met_1
+```
+
+```{r}
+
+
+met_1$date_variable<-as.Date(paste(met_1$year, met_1$month, met_1$day, sep = "-"))  
+
+met_1$week_number<-data.table::week(as.Date(paste(met_1$year, met_1$month, met_1$day, sep = "-")))
+met_1
+met_1 <- met_1[met_1$week_number ==31]
+unique(met_1$week_number)
+```
+
+```{r}
+
+met_avg <- met_1[,.(
+  temp     = mean(temp,na.rm=TRUE),
+  rh       = mean(rh,na.rm=TRUE),
+  wind.sp  = mean(wind.sp,na.rm=TRUE),
+  vis.dist = mean(vis.dist,na.rm=TRUE),
+  lat      = mean(lat),
+  lon      = mean(lon), 
+  elev     = mean(elev,na.rm=TRUE),
+  dew.point =mean(dew.point, na.rm=TRUE)
+), by=c("USAFID", "day")]
+
+met_avg
+```
+
+```{r}
+
+met_avg$regionlat <- cut(met_avg$lat,
+                   breaks=c(24.55525, 39.71 ,48.941),
+                   labels=c('N','S'))
+met_avg$regionlon <-cut(met_avg$lon,
+                   breaks=c(-124.29, -98.00 ,-68.313),
+                   labels=c('E','W'))
+
+met_avg$region<- paste(met_avg$regionlat, met_avg$regionlon, sep = "")
+met_avg
+
+
+                                                                                               
+```
+
+```{r}
+library(ggplot2)
+library(magrittr)
+met_avg
+
+met_avg[!is.na(wind.sp)] %>% 
+  ggplot()+
+  geom_boxplot(mapping=aes(x=1, y=dew.point, fill=region))
+
+```
+
+DESCRIBE THE PLOT:
+
+### **3. Use `geom_violin` to examine the wind speed and dew point by region**
+
+```{r}
+
+met_avg[!is.na(wind.sp)] %>% 
+  ggplot()+
+  geom_violin(mapping=aes(x=1, y=dew.point,fill=region))+
+  labs(title= "Wind Speed and Dewpoint by Region", x="Wind Speed",y="Dewpoint")
+
+```
+
+### **4. Use `geom_jitter` with `stat_smooth` to examine the association between dew point and wind speed by region**
+
+```{r}
+
+met_avg[!is.na(dew.point) & !is.na(wind.sp) ] %>%
+  ggplot() + 
+  geom_point(mapping = aes(x = dew.point, y = wind.sp, color = region)) +geom_smooth(mapping = aes(x = dew.point, y = wind.sp, linetype = region))+
+  labs(title= "Dew Point and Wind Speed by Region", x="Dew Point",y="Windspeed")
+
+```
+
+### **5. Use `geom_bar` to create barplots of the weather stations by elevation category colored by region (Working)**
+
+```{r}
+
+
+
+met_avg[, elev_cat := ifelse(elev > 252, "high", "low")]
+met_avg[, vis_cat  := cut(
+  x      = vis.dist,
+  breaks = c(0, 1000, 6000, 10000, Inf),
+  labels = c("fog", "mist", "haze", "clear"),
+  right  = FALSE
+)]
+
+
+met_avg[!is.na(vis_cat)] %>%
+  ggplot() + 
+  geom_bar(mapping = aes(x =elev_cat, fill=region),position = "dodge") + scale_fill_brewer()+
+  labs(title= "Elevation Categories by Region", x="Elevation Categories",y="Count")
+
+
+
+```
+
+### **6. Use `stat_summary` to examine mean dew point and wind speed by region with standard deviation error bars (Working)**
+
+```{r}
+
+
+
+
+ met_avg[!is.na(dew.point)]%>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = wind.sp, y = region),
+    fun.min = min,
+    fun.max = max,
+    fun = median,
+    fun.data =mean_sdl) + stat_summary(mapping = aes(x = wind.sp, y = region),geom="errorbar")+
+  labs(title= "Mean Dew Point by Region", x="Mean Dew Point ",y="Region")
+
+
+
+ met_avg[!is.na(wind.sp)]%>%
+  ggplot() + 
+    stat_summary(mapping = aes(x = wind.sp, y = region),
+    fun.min = min,
+    fun.max = max,
+    fun = median,
+    fun.data =mean_sdl) + stat_summary(mapping = aes(x = wind.sp, y = region),geom="errorbar")+
+  labs(title= "Wind Speed by Region", x="Wind Speed",y="Region")
+
+
+```
+
+### **7. Make a map showing the spatial trend in relative humidity in the US (Working)**
+
+```{r}
+# Make sure to remove NA
+met_avg <- met_avg[!is.na(rh)]
+met_avg
+
+#Make a color palette with custom colors
+rh.pal <- colorNumeric(c('darkgreen','goldenrod','brown'), domain=met_avg$rh)
+rh.pal
+
+
+#Use Leaflet  a
+RH_map <- leaflet(met_avg) %>%
+  
+  addProviderTiles('CartoDB.Positron') %>% 
+  
+  addCircles(lat = ~lat, lng=~lon,label = ~paste0(round(rh,2), 'RH'),color = ~ rh.pal(rh),opacity = 1, fillOpacity = 1, radius = 500)  %>% addLegend('bottomleft', pal=rh.pal, values=met_avg$rh,
+          title='Relative Humidity', opacity=1)# %>% addMarkers(~lon, ~lat, popup = ~rank(-rh) <= 10, label = ~rank(-rh) <= 10)
+RH_map
+
+```
+
+```         
+```
+
+### **8. Use a ggplot extension**
+
+```{r}
+
+library(ggplot2)
+library(patchwork)
+
+met_avg
+
+p1 <- ggplot(met_avg) + geom_point(aes(dew.point,wind.sp))
+p2 <- ggplot(met_avg) + geom_boxplot(aes(region, wind.sp, group = region))
+
+p1 + p2
+
+
+p3 <- ggplot(met_avg) + geom_smooth(aes(wind.sp,rh))
+p4 <- ggplot(met_avg) + geom_bar(aes(region))
+
+(p1 | p2 | p3) /
+      p4
+
+```
